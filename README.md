@@ -1,0 +1,1 @@
+# janmar-wms-magazyn
