@@ -41,11 +41,11 @@ st.markdown("""
         margin-bottom: 20px;
     }
     </style>
-""", unsafe_unsafe_with_transparent_background=True, unsafe_allow_html=True)
+""", unsafe_allow_html=True)
 
 # Tytuł systemu
 st.title("🏭 JANMAR WMS - PANEL PRZYJĘCIA")
-st.subheader("System rejestracji dostaw towaru na magazynie (v1.0 PROTOTYP)")
+st.subheader("System rejestracji dostaw towaru na magazynie (v1.1 PROTOTYP)")
 st.write("---")
 
 # Symulacja bazy danych w pamięci sesji Streamlit
