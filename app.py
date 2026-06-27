@@ -45,7 +45,7 @@ st.markdown("""
 
 # Tytuł systemu
 st.title("🏭 JANMAR WMS - PANEL PRZYJĘCIA")
-st.subheader("System rejestracji dostaw towaru na magazynie (v1.1 PROTOTYP)")
+st.subheader("System rejestracji dostaw towaru na magazynie (v1.2 PROTOTYP)")
 st.write("---")
 
 # Symulacja bazy danych w pamięci sesji Streamlit
@@ -76,7 +76,6 @@ st.info(f"📅 Data i godzina przyjęcia (Auto): **{automatyczna_data}**")
 opcje_dostawcow = {k: f"{v['nazwa']} ({k})" for k, v in st.session_state["baza_dostawcow"].items()}
 wybrany_id = st.selectbox("Wybierz dostawcę z bazy:", options=list(opcje_dostawcow.keys()), format_func=lambda x: opcje_dostawcow[x])
 
-# Formularz dodawania nowego dostawcy
 nowy_dostawca_chk = st.checkbox("➕ [ KLIKNIJ ] JEŚLI TO NOWY DOSTAWCA (SPOZA LISTY)")
 if nowy_dostawca_chk:
     st.markdown("### 🆕 Rejestracja Nowego Dostawcy")
@@ -143,7 +142,7 @@ rodzaj_palety = st.selectbox("Towar przyjechał na palecie:", ["PALETA EURO", "P
 st.write("---")
 
 # ==============================================================================
-# KROK 4: WAGI I TRYBY PRZYJĘCIA
+# KROK 4: WAGI, TRYBY PRZYJĘCIA I WYDAWKA OPAKOWAŃ
 # ==============================================================================
 st.header("4. Rejestracja Ilości i Wag")
 
@@ -152,12 +151,14 @@ tryb_przyjecia = st.radio("Wybierz gabaryt dostawy:", ["SZYBKIE PRZYJĘCIE (Mał
 waga_netto_laczna = 0.0
 ilosc_opakowan_laczna = 0
 ilosc_szt_kg_laczna = 0.0
+ilosc_palet_dostarczonych = 0
 
 if tryb_przyjecia == "SZYBKIE PRZYJĘCIE (Mała dostawa / Busy)":
-    st.markdown("### ⚡ Szybki formularz zbiorczy")
+    st.markdown("### ⚡ Szybki formularz zbiorczy (Dostawa)")
     ilosc_szt_kg_laczna = st.number_input("Łączna ilość towaru (Sztuki lub Kilogramy):", min_value=0.0, value=0.0, step=10.0)
-    ilosc_opakowan_laczna = st.number_input("Łączna ilość skrzynek/opakowań (op.):", min_value=0, value=0, step=1)
-    waga_netto_laczna = ilosc_szt_kg_laczna # Uproszczenie dla szybkich dostaw
+    ilosc_opakowan_laczna = st.number_input("Ilość dostarczonych skrzynek/opakowań (z towarem):", min_value=0, value=0, step=1)
+    ilosc_palet_dostarczonych = st.number_input("Ilość dostarczonych palet (z towarem):", min_value=0, value=0, step=1)
+    waga_netto_laczna = ilosc_szt_kg_laczna
     
 else:
     st.markdown("### ⚖️ Sekwencyjne Ważenie Paletowe (TIR)")
@@ -198,12 +199,31 @@ else:
             
         ilosc_opakowan_laczna = sum(p['opakowania'] for p in st.session_state["palety_tir"])
         waga_netto_laczna = sum(p['netto'] for p in st.session_state["palety_tir"])
+        ilosc_palet_dostarczonych = len(st.session_state["palety_tir"])
         
-        st.markdown(f"**RAZEM Z TIR-A:** Palet: `{len(st.session_state['palety_tir'])}` | Opakowań: `{ilosc_opakowan_laczna}` | Łączna waga NETTO: `{waga_netto_laczna} kg`")
+        st.markdown(f"**RAZEM Z TIR-A:** Palet: `{ilosc_palet_dostarczonych}` | Opakowań: `{ilosc_opakowan_laczna}` | Łączna waga NETTO: `{waga_netto_laczna} kg`")
         
         if st.button("🗑️ WYCZYŚĆ REJESTR PALET (RESET)"):
             st.session_state["palety_tir"] = []
             st.rerun()
+
+# POBRANIA / ZWROTY DLA OBU TRYBÓW
+st.markdown("### 🔄 Saldo Opakowań i Palet (Pobranie przez kierowcę)")
+st.write("Odznacz poniższe opcje, jeśli kierowca pobiera puste palety lub skrzynki:")
+
+ilosc_opakowan_pobranych = 0
+ilosc_palet_pobranych = 0
+
+col_op, col_pal = st.columns(2)
+with col_op:
+    nie_pobiera_op = st.checkbox("✅ NIE POBIERA OPAKOWAŃ", value=True)
+    if not nie_pobiera_op:
+        ilosc_opakowan_pobranych = st.number_input("Ilość POBRANYCH pustych opakowań (szt):", min_value=0, value=0, step=1)
+        
+with col_pal:
+    nie_pobiera_palet = st.checkbox("✅ NIE POBIERA PALET", value=True)
+    if not nie_pobiera_palet:
+        ilosc_palet_pobranych = st.number_input("Ilość POBRANYCH pustych palet (szt):", min_value=0, value=0, step=1)
 
 st.write("---")
 
@@ -265,17 +285,20 @@ if st.button("🔒 ZATWIERDŹ DOSTAWĘ I GENERUJ DOKUMENT PZ"):
     elif tryb_przyjecia == "ROZŁADUNEK TIR (Ważenie paletowe)" and not st.session_state["palety_tir"]:
         st.error("❌ Błąd! Wybrałeś tryb TIR, ale nie zarejestrowałeś żadnej zważonej palety!")
     else:
-        # Symulacja bazy i generowania dokumentu
         dane_dostawcy_koncowe = st.session_state["baza_dostawcow"][wybrany_id]
         
         st.success("🎉 DOKUMENT PZ WYGENEROWANY POMYŚLNIE!")
         st.balloons()
         
+        saldo_palet = ilosc_palet_dostarczonych - ilosc_palet_pobranych
+        saldo_opakowan = ilosc_opakowan_laczna - ilosc_opakowan_pobranych
+        
         # Ekran podsumowania dla kierownika/handlowca
         st.markdown("### 📋 PODSUMOWANIE RAPORTU PZ JANMAR")
         st.write(f"**Dostawca:** {dane_dostawcy_koncowe['nazwa']} | **ID:** {wybrany_id} | **Telefon:** {dane_dostawcy_koncowe['tel']}")
         st.write(f"**Asortyment:** {wybrany_towar} | **Opakowanie:** {rodzaj_opakowania} {szczegoly_opakowania} {nr_opakowania_sieciowego}")
-        st.write(f"**Logistyka:** {rodzaj_palety} | **Łączna ilość skrzynek:** {ilosc_opakowan_laczna} op.")
+        st.write(f"**Rozliczenie Palet:** Przywiózł: {ilosc_palet_dostarczonych} | Pobrał: {ilosc_palet_pobranych} ➡️ **Saldo: {saldo_palet}**")
+        st.write(f"**Rozliczenie Opakowań:** Przywiózł: {ilosc_opakowan_laczna} | Pobrał: {ilosc_opakowan_pobranych} ➡️ **Saldo: {saldo_opakowan}**")
         st.write(f"**Waga Netto Dostawy:** {waga_netto_laczna} kg / szt.")
         st.write(f"**Status Jakości:** {st.session_state['status_jakosci']} ({komentarz_jakosc})")
         st.write(f"**Dokument sporządził:** {magazynier_imie}")
