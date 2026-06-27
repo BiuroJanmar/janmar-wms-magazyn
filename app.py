@@ -42,10 +42,10 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.title("🏭 JANMAR WMS - PANEL PRZYJĘCIA")
-st.subheader("ETAP 1: Testy interfejsu dotykowego na magazynie (v1.3)")
+st.subheader("ETAP 1: Testy interfejsu dotykowego na magazynie (v1.4)")
 st.write("---")
 
-# Baza w pamięci sesji (do testów klikania)
+# Bazy w pamięci sesji (zapamiętują dopisane rzeczy podczas pracy aplikacji)
 if "baza_dostawcow" not in st.session_state:
     st.session_state["baza_dostawcow"] = {
         "JAN-10023": {"nazwa": "AGRO-HURT JANUSZ", "tel": "601234567"},
@@ -55,6 +55,8 @@ if "lista_towarow" not in st.session_state:
     st.session_state["lista_towarow"] = ["ARBUZ LUZ", "ZIEMNIAK WCZESNY LUZ", "ZIEMNIAK LUZ", "KAPUSTA PEKIŃSKA LUZ", "KAPUSTA WŁOSKA LUZ"]
 if "palety_tir" not in st.session_state:
     st.session_state["palety_tir"] = []
+if "lista_magazynierow" not in st.session_state:
+    st.session_state["lista_magazynierow"] = ["Zbigniew Tkaczyk", "Jan Kowalski", "Mariusz Nowak", "Piotr Zieliński"]
 
 # --- KROK 1: DOSTAWCA ---
 st.header("1. Dane Dostawy i Kontrahenta")
@@ -181,23 +183,27 @@ elif st.session_state["status_jakosci"] == "CZERWONY":
 
 st.write("---")
 
-# --- KROK 5: ZATWIERDZENIE ORAZ DOSKOKI ---
+# --- KROK 5: ZATWIERDZENIE ORAZ DOPISYWANIE PRACOWNIKÓW ---
 st.header("5. Zamknięcie i Autoryzacja Dostawy")
-magazynier_wybor = st.selectbox("Przyjmujący magazynier:", ["Jan Kowalski", "Mariusz Nowak", "Piotr Zieliński", "➕ INNA OSOBA (WPISZ RĘCZNIE)"])
 
-magazynier_imie = ""
-if magazynier_wybor == "➕ INNA OSOBA (WPISZ RĘCZNIE)":
-    magazynier_imie = st.text_input("Wpisz imię i nazwisko osoby przyjmującej:").strip()
-else:
-    magazynier_imie = magazynier_wybor
+wybrany_magazynier = st.selectbox("Przyjmujący magazynier:", options=st.session_state["lista_magazynierow"] + ["➕ INNY MAGAZYNIER (DODAJ NA STAŁE)"])
+
+if wybrany_magazynier == "➕ INNY MAGAZYNIER (DODAJ NA STAŁE)":
+    st.markdown("### 👤 Rejestracja Nowego Pracownika")
+    nowy_m_imie = st.text_input("Wpisz Imię i Nazwisko nowego magazyniera:")
+    if st.button("💾 ZAPISZ PRACOWNIKA NA LIŚCIE"):
+        if nowy_m_imie:
+            st.session_state["lista_magazynierow"].append(nowy_m_imie.strip())
+            st.success(f"✅ Dodano {nowy_m_imie} do listy. Możesz go teraz wybrać powyżej.")
+            st.rerun()
 
 if st.button("🔒 ZATWIERDŹ TESTOWE PRZYJĘCIE"):
     if st.session_state["status_jakosci"] == "NIEWYBRANY":
         st.error("❌ Musisz wybrać ocenę jakościową (Zielony/Pomarańczowy/Czerwony kafel)!")
-    elif not magazynier_imie:
-        st.error("❌ Podaj imię i nazwisko!")
+    elif wybrany_magazynier == "➕ INNY MAGAZYNIER (DODAJ NA STAŁE)":
+        st.error("❌ Wybierz konkretne imię i nazwisko z listy przed zatwierdzeniem!")
     else:
-        st.success(f"🎉 Sukces! Test zakończony pomyślnie dla magazyniera: {magazynier_imie}")
+        st.success(f"🎉 Sukces! Test zakończony pomyślnie dla magazyniera: {wybrany_magazynier}")
         st.write(f"**Towar:** {wybrany_towar} | **Netto:** {waga_netto_laczna} kg")
         st.write(f"**Opakowania saldo:** Przywiózł {ilosc_opakowan_laczna} | Pobrał {ilosc_opakowan_pobranych}")
         st.write(f"**Palety saldo:** Przywiózł {ilosc_palet_dostarczonych} | Pobrał {ilosc_palet_pobranych}")
